@@ -48,14 +48,10 @@ from .typing import (
     ModelInfoResponse,
     ModelListResponse,
     TokenCountResponse,
-    to_dict
+    to_dict,
 )
 
-params = {
-    'embedding_device': 'cpu',
-    'embedding_model': 'sentence-transformers/all-mpnet-base-v2',
-    'debug': 0
-}
+params = {"embedding_device": "cpu", "embedding_model": "sentence-transformers/all-mpnet-base-v2", "debug": 0}
 
 
 streaming_semaphore = asyncio.Semaphore(1)
@@ -80,11 +76,7 @@ check_admin_key = [Depends(verify_admin_key)]
 
 # Configure CORS settings to allow all origins, methods, and headers
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"]
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
 )
 
 
@@ -94,10 +86,7 @@ async def validate_host_header(request: Request, call_next):
     if not (shared.args.listen or shared.args.public_api):
         host = request.headers.get("host", "").split(":")[0]
         if host not in ["localhost", "127.0.0.1"]:
-            return JSONResponse(
-                status_code=400,
-                content={"detail": "Invalid host header"}
-            )
+            return JSONResponse(status_code=400, content={"detail": "Invalid host header"})
 
     return await call_next(request)
 
@@ -107,12 +96,13 @@ async def options_route():
     return JSONResponse(content="OK")
 
 
-@app.post('/v1/completions', response_model=CompletionResponse, dependencies=check_key)
+@app.post("/v1/completions", response_model=CompletionResponse, dependencies=check_key)
 async def openai_completions(request: Request, request_data: CompletionRequest):
     path = request.url.path
     is_legacy = "/generate" in path
 
     if request_data.stream:
+
         async def generator():
             async with streaming_semaphore:
                 try:
@@ -130,22 +120,18 @@ async def openai_completions(request: Request, request_data: CompletionRequest):
 
         return EventSourceResponse(generator())  # SSE streaming
 
-    else:
-        response = await asyncio.to_thread(
-            OAIcompletions.completions,
-            to_dict(request_data),
-            is_legacy=is_legacy
-        )
+    response = await asyncio.to_thread(OAIcompletions.completions, to_dict(request_data), is_legacy=is_legacy)
 
-        return JSONResponse(response)
+    return JSONResponse(response)
 
 
-@app.post('/v1/chat/completions', response_model=ChatCompletionResponse, dependencies=check_key)
+@app.post("/v1/chat/completions", response_model=ChatCompletionResponse, dependencies=check_key)
 async def openai_chat_completions(request: Request, request_data: ChatCompletionRequest):
     path = request.url.path
     is_legacy = "/generate" in path
 
     if request_data.stream:
+
         async def generator():
             async with streaming_semaphore:
                 try:
@@ -163,40 +149,35 @@ async def openai_chat_completions(request: Request, request_data: ChatCompletion
 
         return EventSourceResponse(generator())  # SSE streaming
 
-    else:
-        response = await asyncio.to_thread(
-            OAIcompletions.chat_completions,
-            to_dict(request_data),
-            is_legacy=is_legacy
-        )
+    response = await asyncio.to_thread(OAIcompletions.chat_completions, to_dict(request_data), is_legacy=is_legacy)
 
-        return JSONResponse(response)
+    return JSONResponse(response)
 
 
 @app.get("/v1/models", dependencies=check_key)
 @app.get("/v1/models/{model}", dependencies=check_key)
 async def handle_models(request: Request):
     path = request.url.path
-    is_list = request.url.path.split('?')[0].split('#')[0] == '/v1/models'
+    is_list = request.url.path.split("?")[0].split("#")[0] == "/v1/models"
 
     if is_list:
         response = OAImodels.list_models_openai_format()
     else:
-        model_name = path[len('/v1/models/'):]
+        model_name = path[len("/v1/models/") :]
         response = OAImodels.model_info_dict(model_name)
 
     return JSONResponse(response)
 
 
-@app.get('/v1/billing/usage', dependencies=check_key)
+@app.get("/v1/billing/usage", dependencies=check_key)
 def handle_billing_usage():
-    '''
+    """
     Ex. /v1/dashboard/billing/usage?start_date=2023-05-01&end_date=2023-05-31
-    '''
+    """
     return JSONResponse(content={"total_usage": 0})
 
 
-@app.post('/v1/audio/transcriptions', dependencies=check_key)
+@app.post("/v1/audio/transcriptions", dependencies=check_key)
 async def handle_audio_transcription(request: Request):
     import speech_recognition as sr
 
@@ -211,8 +192,10 @@ async def handle_audio_transcription(request: Request):
 
     # Create AudioData object
     audio_data = sr.AudioData(raw_data, audio_data.frame_rate, audio_data.sample_width)
-    whisper_language = form.getvalue('language', None)
-    whisper_model = form.getvalue('model', 'tiny')  # Use the model from the form data if it exists, otherwise default to tiny
+    whisper_language = form.getvalue("language", None)
+    whisper_model = form.getvalue(
+        "model", "tiny"
+    )  # Use the model from the form data if it exists, otherwise default to tiny
 
     transcription = {"text": ""}
 
@@ -228,7 +211,7 @@ async def handle_audio_transcription(request: Request):
     return JSONResponse(content=transcription)
 
 
-@app.post('/v1/images/generations', response_model=ImageGenerationResponse, dependencies=check_key)
+@app.post("/v1/images/generations", response_model=ImageGenerationResponse, dependencies=check_key)
 async def handle_image_generation(request_data: ImageGenerationRequest):
     import extensions.openai.images as OAIimages
 
@@ -290,15 +273,15 @@ async def handle_token_count(request_data: EncodeRequest):
 
 @app.post("/v1/internal/logits", response_model=LogitsResponse, dependencies=check_key)
 async def handle_logits(request_data: LogitsRequest):
-    '''
+    """
     Given a prompt, returns the top 50 most likely logits as a dict.
     The keys are the tokens, and the values are the probabilities.
-    '''
+    """
     response = OAIlogits._get_next_logits(to_dict(request_data))
     return JSONResponse(response)
 
 
-@app.post('/v1/internal/chat-prompt', response_model=ChatPromptResponse, dependencies=check_key)
+@app.post("/v1/internal/chat-prompt", response_model=ChatPromptResponse, dependencies=check_key)
 async def handle_chat_prompt(request: Request, request_data: ChatCompletionRequest):
     path = request.url.path
     is_legacy = "/generate" in path
@@ -327,7 +310,7 @@ async def handle_list_models():
 
 @app.post("/v1/internal/model/load", dependencies=check_admin_key)
 async def handle_load_model(request_data: LoadModelRequest):
-    '''
+    """
     This endpoint is experimental and may change in the future.
 
     The "args" parameter can be used to modify flags like "--load-in-4bit"
@@ -352,8 +335,7 @@ async def handle_load_model(request_data: LoadModelRequest):
       "instruction_template": "Alpaca"
     }
     ```
-    '''
-
+    """
     try:
         OAImodels._load_model(to_dict(request_data))
         return JSONResponse(content="OK")
@@ -375,17 +357,11 @@ async def handle_list_loras():
 
 @app.post("/v1/internal/lora/load", dependencies=check_admin_key)
 async def handle_load_loras(request_data: LoadLorasRequest):
-    try:
-        OAImodels.load_loras(request_data.lora_names)
-        return JSONResponse(content="OK")
-    except:
-        traceback.print_exc()
-        return HTTPException(status_code=400, detail="Failed to apply the LoRA(s).")
+    return HTTPException(status_code=400, detail="Not implemented")
 
 
 @app.post("/v1/internal/lora/unload", dependencies=check_admin_key)
 async def handle_unload_loras():
-    OAImodels.unload_all_loras()
     return JSONResponse(content="OK")
 
 
@@ -394,12 +370,12 @@ def find_available_port(starting_port):
     try:
         # Try to create a socket with the starting port
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(('', starting_port))
+            s.bind(("", starting_port))
             return starting_port
     except OSError:
         # Port is already in use, so find a new one
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(('', 0))  # Bind to port 0 to get an available port
+            s.bind(("", 0))  # Bind to port 0 to get an available port
             new_port = s.getsockname()[1]
             logger.warning(f"Port {starting_port} is already in use. Using port {new_port} instead.")
             return new_port
@@ -407,20 +383,20 @@ def find_available_port(starting_port):
 
 def run_server():
     # Parse configuration
-    port = int(os.environ.get('OPENEDAI_PORT', shared.args.api_port))
+    port = int(os.environ.get("OPENEDAI_PORT", shared.args.api_port))
     port = find_available_port(port)
-    ssl_certfile = os.environ.get('OPENEDAI_CERT_PATH', shared.args.ssl_certfile)
-    ssl_keyfile = os.environ.get('OPENEDAI_KEY_PATH', shared.args.ssl_keyfile)
+    ssl_certfile = os.environ.get("OPENEDAI_CERT_PATH", shared.args.ssl_certfile)
+    ssl_keyfile = os.environ.get("OPENEDAI_KEY_PATH", shared.args.ssl_keyfile)
 
     # In the server configuration:
     server_addrs = []
-    if os.environ.get('OPENEDAI_ENABLE_IPV6', shared.args.api_enable_ipv6):
-        server_addrs.append('[::]' if shared.args.listen else '[::1]')
-    if not os.environ.get('OPENEDAI_DISABLE_IPV4', shared.args.api_disable_ipv4):
-        server_addrs.append('0.0.0.0' if shared.args.listen else '127.0.0.1')
+    if os.environ.get("OPENEDAI_ENABLE_IPV6", shared.args.api_enable_ipv6):
+        server_addrs.append("[::]" if shared.args.listen else "[::1]")
+    if not os.environ.get("OPENEDAI_DISABLE_IPV4", shared.args.api_disable_ipv4):
+        server_addrs.append("0.0.0.0" if shared.args.listen else "127.0.0.1")
 
     if not server_addrs:
-        raise Exception('you MUST enable IPv6 or IPv4 for the API to work')
+        raise Exception("you MUST enable IPv6 or IPv4 for the API to work")
 
     # Log server information
     if shared.args.public_api:
@@ -428,25 +404,25 @@ def run_server():
             port,
             shared.args.public_api_id,
             max_attempts=3,
-            on_start=lambda url: logger.info(f'OpenAI-compatible API URL:\n\n{url}\n')
+            on_start=lambda url: logger.info(f"OpenAI-compatible API URL:\n\n{url}\n"),
         )
     else:
-        url_proto = 'https://' if (ssl_certfile and ssl_keyfile) else 'http://'
-        urls = [f'{url_proto}{addr}:{port}' for addr in server_addrs]
+        url_proto = "https://" if (ssl_certfile and ssl_keyfile) else "http://"
+        urls = [f"{url_proto}{addr}:{port}" for addr in server_addrs]
         if len(urls) > 1:
-            logger.info('OpenAI-compatible API URLs:\n\n' + '\n'.join(urls) + '\n')
+            logger.info("OpenAI-compatible API URLs:\n\n" + "\n".join(urls) + "\n")
         else:
-            logger.info('OpenAI-compatible API URL:\n\n' + '\n'.join(urls) + '\n')
+            logger.info("OpenAI-compatible API URL:\n\n" + "\n".join(urls) + "\n")
 
     # Log API keys
     if shared.args.api_key:
         if not shared.args.admin_key:
             shared.args.admin_key = shared.args.api_key
 
-        logger.info(f'OpenAI API key:\n\n{shared.args.api_key}\n')
+        logger.info(f"OpenAI API key:\n\n{shared.args.api_key}\n")
 
     if shared.args.admin_key and shared.args.admin_key != shared.args.api_key:
-        logger.info(f'OpenAI API admin key (for loading/unloading models):\n\n{shared.args.admin_key}\n')
+        logger.info(f"OpenAI API admin key (for loading/unloading models):\n\n{shared.args.admin_key}\n")
 
     # Start server
     logging.getLogger("uvicorn.error").propagate = False

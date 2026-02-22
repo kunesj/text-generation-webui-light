@@ -1,0 +1,30 @@
+default_language_version:
+  python: python3.12
+
+repos:
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: v0.12.2
+  hooks:
+    # Run the linter.
+    - id: ruff-check
+      # --fix - automatically fix fixable issues
+      # --exit-non-zero-on-fix - prevent successful pre-commit when issues were automatically fixed
+      # --config:  must be specified, because it's not in the repo that is being checked
+      args: [ "--fix", "--exit-non-zero-on-fix", "--config", "pyproject.toml" ]
+    # Run the formatter.
+    - id: ruff-format
+      # --exit-non-zero-on-fix - prevent successful pre-commit when files were automatically formatted
+      # --config:  must be specified, because it's not in the repo that is being checked
+      args: ["--exit-non-zero-on-fix", "--config", "pyproject.toml" ]
+#- repo: https://github.com/pre-commit/mirrors-mypy
+#  rev: v1.19.1
+#  hooks:
+#  - id: mypy
+#    args: ["--config-file", "pyproject.toml"]
+#    additional_dependencies: [
+#    ]
+#- repo: https://github.com/pre-commit/mirrors-eslint
+#  rev: v8.43.0
+#  hooks:
+#  - id: eslint
+#    args: ["--fix"]

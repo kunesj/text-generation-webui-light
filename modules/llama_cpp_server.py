@@ -7,17 +7,16 @@ import subprocess
 import sys
 import threading
 import time
-from pathlib import Path
-from typing import Any, List
+import pathlib
+from typing import Any
 
-import llama_cpp_binaries
 import requests
 
 from modules import shared
 from modules.image_utils import (
     convert_image_attachments_to_pil,
     convert_openai_messages_to_images,
-    convert_pil_to_base64
+    convert_pil_to_base64,
 )
 from modules.logging_colors import logger
 from modules.utils import resolve_model_path
@@ -26,9 +25,12 @@ llamacpp_valid_cache_types = {"fp16", "q8_0", "q4_0"}
 
 
 class LlamaServer:
-    def __init__(self, model_path, server_path=None):
+    def __init__(self, model_path: pathlib.Path, server_path: pathlib.Path) -> None:
         """
         Initialize and start a server for llama.cpp models.
+
+        :param model_path:
+        :param server_path: Absolute path to the `llama-server` executable
         """
         self.model_path = model_path
         self.server_path = server_path
@@ -68,8 +70,12 @@ class LlamaServer:
 
     def prepare_payload(self, state):
         payload = {
-            "temperature": state["temperature"] if not state["dynamic_temperature"] else (state["dynatemp_low"] + state["dynatemp_high"]) / 2,
-            "dynatemp_range": 0 if not state["dynamic_temperature"] else (state["dynatemp_high"] - state["dynatemp_low"]) / 2,
+            "temperature": state["temperature"]
+            if not state["dynamic_temperature"]
+            else (state["dynatemp_low"] + state["dynatemp_high"]) / 2,
+            "dynatemp_range": 0
+            if not state["dynamic_temperature"]
+            else (state["dynatemp_high"] - state["dynatemp_low"]) / 2,
             "dynatemp_exponent": state["dynatemp_exponent"],
             "top_k": state["top_k"],
             "top_p": state["top_p"],
@@ -95,7 +101,7 @@ class LlamaServer:
         }
 
         # DRY
-        dry_sequence_breakers = state['dry_sequence_breakers']
+        dry_sequence_breakers = state["dry_sequence_breakers"]
         if not dry_sequence_breakers.startswith("["):
             dry_sequence_breakers = "[" + dry_sequence_breakers + "]"
 
@@ -125,32 +131,32 @@ class LlamaServer:
 
             payload["samplers"] = filtered_samplers
 
-        if state['custom_token_bans']:
-            to_ban = [[int(token_id), False] for token_id in state['custom_token_bans'].split(',')]
+        if state["custom_token_bans"]:
+            to_ban = [[int(token_id), False] for token_id in state["custom_token_bans"].split(",")]
             payload["logit_bias"] = to_ban
 
         return payload
 
-    def _process_images_for_generation(self, state: dict) -> List[Any]:
+    def _process_images_for_generation(self, state: dict) -> list[Any]:
         """
         Process all possible image inputs and return PIL images
         """
         pil_images = []
         # Source 1: Web UI (from chatbot_wrapper)
-        if 'image_attachments' in state and state['image_attachments']:
-            pil_images.extend(convert_image_attachments_to_pil(state['image_attachments']))
+        if state.get("image_attachments"):
+            pil_images.extend(convert_image_attachments_to_pil(state["image_attachments"]))
         # Source 2: Chat Completions API (/v1/chat/completions)
-        elif 'history' in state and state.get('history', {}).get('messages'):
-            pil_images.extend(convert_openai_messages_to_images(state['history']['messages']))
+        elif "history" in state and state.get("history", {}).get("messages"):
+            pil_images.extend(convert_openai_messages_to_images(state["history"]["messages"]))
         # Source 3: Legacy Completions API (/v1/completions)
-        elif 'raw_images' in state and state['raw_images']:
-            pil_images.extend(state.get('raw_images', []))
+        elif state.get("raw_images"):
+            pil_images.extend(state.get("raw_images", []))
 
         return pil_images
 
     def is_multimodal(self) -> bool:
         """Check if this model supports multimodal input."""
-        return shared.args.mmproj not in [None, 'None']
+        return shared.args.mmproj not in [None, "None"]
 
     def generate_with_streaming(self, prompt, state):
         url = f"http://127.0.0.1:{self.port}/completion"
@@ -166,10 +172,7 @@ class LlamaServer:
             IMAGE_TOKEN_COST_ESTIMATE = 600  # A safe, conservative estimate per image
 
             base64_images = [convert_pil_to_base64(img) for img in pil_images]
-            payload["prompt"] = {
-                "prompt_string": prompt,
-                "multimodal_data": base64_images
-            }
+            payload["prompt"] = {"prompt_string": prompt, "multimodal_data": base64_images}
 
             # Calculate an estimated token count
             text_tokens = self.encode(prompt, add_bos_token=state["add_bos_token"])
@@ -180,16 +183,12 @@ class LlamaServer:
             self.last_prompt_token_count = len(token_ids)
             payload["prompt"] = token_ids
 
-        if state['auto_max_new_tokens']:
-            max_new_tokens = state['truncation_length'] - self.last_prompt_token_count
+        if state["auto_max_new_tokens"]:
+            max_new_tokens = state["truncation_length"] - self.last_prompt_token_count
         else:
-            max_new_tokens = state['max_new_tokens']
+            max_new_tokens = state["max_new_tokens"]
 
-        payload.update({
-            "n_predict": max_new_tokens,
-            "stream": True,
-            "cache_prompt": True
-        })
+        payload.update({"n_predict": max_new_tokens, "stream": True, "cache_prompt": True})
 
         if shared.args.verbose:
             logger.info("GENERATE_PARAMS=")
@@ -216,22 +215,21 @@ class LlamaServer:
                     continue
 
                 try:
-                    line = line.decode('utf-8')
+                    line = line.decode("utf-8")
 
                     # Check if the line starts with "data: " and remove it
-                    if line.startswith('data: '):
-                        line = line[6:]  # Remove the "data: " prefix
+                    line = line.removeprefix("data: ")  # Remove the "data: " prefix
 
                     # Parse the JSON data
                     data = json.loads(line)
 
                     # Extract the token content
-                    if data.get('content', ''):
-                        full_text += data['content']
+                    if data.get("content", ""):
+                        full_text += data["content"]
                         yield full_text
 
                     # Check if generation is complete
-                    if data.get('stop', False):
+                    if data.get("stop", False):
                         break
 
                 except json.JSONDecodeError as e:
@@ -254,14 +252,16 @@ class LlamaServer:
         url = f"http://127.0.0.1:{self.port}/completion"
 
         payload = self.prepare_payload(state)
-        payload.update({
-            "prompt": self.encode(prompt, add_bos_token=state["add_bos_token"]),
-            "n_predict": 0,
-            "logprobs": True,
-            "n_probs": n_probs,
-            "stream": False,
-            "post_sampling_probs": use_samplers,
-        })
+        payload.update(
+            {
+                "prompt": self.encode(prompt, add_bos_token=state["add_bos_token"]),
+                "n_predict": 0,
+                "logprobs": True,
+                "n_probs": n_probs,
+                "stream": False,
+                "post_sampling_probs": use_samplers,
+            }
+        )
 
         if shared.args.verbose and use_samplers:
             logger.info("GENERATE_PARAMS=")
@@ -276,10 +276,8 @@ class LlamaServer:
             if "completion_probabilities" in result:
                 if use_samplers:
                     return result["completion_probabilities"][0]["top_probs"]
-                else:
-                    return result["completion_probabilities"][0]["top_logprobs"]
-        else:
-            raise Exception(f"Unexpected response format: 'completion_probabilities' not found in {result}")
+                return result["completion_probabilities"][0]["top_logprobs"]
+        raise Exception(f"Unexpected response format: 'completion_probabilities' not found in {result}")
 
     def _get_vocabulary_size(self):
         """Get and store the model's maximum context length."""
@@ -301,26 +299,29 @@ class LlamaServer:
     def _find_available_port(self):
         """Find an available port by letting the OS assign one."""
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(('', 0))  # Bind to port 0 to get an available port
+            s.bind(("", 0))  # Bind to port 0 to get an available port
             return s.getsockname()[1]
 
     def _start_server(self):
         """Start the llama.cpp server and wait until it's ready."""
-        # Determine the server path
-        if self.server_path is None:
-            self.server_path = llama_cpp_binaries.get_binary_path()
-
         # Build the command
         cmd = [
             self.server_path,
-            "--model", self.model_path,
-            "--ctx-size", str(shared.args.ctx_size),
-            "--gpu-layers", str(shared.args.gpu_layers),
-            "--batch-size", str(shared.args.batch_size),
-            "--ubatch-size", str(shared.args.ubatch_size),
-            "--port", str(self.port),
+            "--model",
+            self.model_path,
+            "--ctx-size",
+            str(shared.args.ctx_size),
+            "--gpu-layers",
+            str(shared.args.gpu_layers),
+            "--batch-size",
+            str(shared.args.batch_size),
+            "--ubatch-size",
+            str(shared.args.ubatch_size),
+            "--port",
+            str(self.port),
             "--no-webui",
-            "--flash-attn", "on",
+            "--flash-attn",
+            "on",
         ]
 
         if shared.args.threads > 0:
@@ -349,20 +350,20 @@ class LlamaServer:
             cmd += ["--rope-freq-scale", str(1.0 / shared.args.compress_pos_emb)]
         if shared.args.rope_freq_base > 0:
             cmd += ["--rope-freq-base", str(shared.args.rope_freq_base)]
-        if shared.args.mmproj not in [None, 'None']:
-            path = Path(shared.args.mmproj)
+        if shared.args.mmproj not in [None, "None"]:
+            path = pathlib.Path(shared.args.mmproj)
             if not path.exists():
-                path = Path('user_data/mmproj') / shared.args.mmproj
+                path = pathlib.Path("user_data/mmproj") / shared.args.mmproj
 
             if path.exists():
                 cmd += ["--mmproj", str(path)]
-        if shared.args.model_draft not in [None, 'None']:
+        if shared.args.model_draft not in [None, "None"]:
             path = resolve_model_path(shared.args.model_draft)
 
             if path.is_file():
                 model_file = path
             else:
-                model_file = sorted(path.glob('*.gguf'))[0]
+                model_file = sorted(path.glob("*.gguf"))[0]
 
             cmd += ["--model-draft", model_file]
             if shared.args.draft_max > 0:
@@ -379,14 +380,14 @@ class LlamaServer:
         if shared.args.extra_flags:
             # Clean up the input
             extra_flags = shared.args.extra_flags.strip()
-            if extra_flags.startswith('"') and extra_flags.endswith('"'):
-                extra_flags = extra_flags[1:-1].strip()
-            elif extra_flags.startswith("'") and extra_flags.endswith("'"):
+            if (extra_flags.startswith('"') and extra_flags.endswith('"')) or (
+                extra_flags.startswith("'") and extra_flags.endswith("'")
+            ):
                 extra_flags = extra_flags[1:-1].strip()
 
-            for flag_item in extra_flags.split(','):
-                if '=' in flag_item:
-                    flag, value = flag_item.split('=', 1)
+            for flag_item in extra_flags.split(","):
+                if "=" in flag_item:
+                    flag, value = flag_item.split("=", 1)
                     if len(flag) <= 3:
                         cmd += [f"-{flag}", value]
                     else:
@@ -398,26 +399,23 @@ class LlamaServer:
                         cmd.append(f"--{flag_item}")
 
         env = os.environ.copy()
-        if os.name == 'posix':
-            current_path = env.get('LD_LIBRARY_PATH', '')
+        if os.name == "posix":
+            current_path = env.get("LD_LIBRARY_PATH", "")
             if current_path:
-                env['LD_LIBRARY_PATH'] = f"{current_path}:{os.path.dirname(self.server_path)}"
+                env["LD_LIBRARY_PATH"] = f"{current_path}:{os.path.dirname(self.server_path)}"
             else:
-                env['LD_LIBRARY_PATH'] = os.path.dirname(self.server_path)
+                env["LD_LIBRARY_PATH"] = os.path.dirname(self.server_path)
 
         if shared.args.verbose:
             logger.info("llama-server command-line flags:")
-            print(' '.join(str(item) for item in cmd[1:]))
+            print(" ".join(str(item) for item in cmd[1:]))
             print()
 
-        logger.info(f"Using gpu_layers={shared.args.gpu_layers} | ctx_size={shared.args.ctx_size} | cache_type={cache_type}")
-        # Start the server with pipes for output
-        self.process = subprocess.Popen(
-            cmd,
-            stderr=subprocess.PIPE,
-            bufsize=0,
-            env=env
+        logger.info(
+            f"Using gpu_layers={shared.args.gpu_layers} | ctx_size={shared.args.ctx_size} | cache_type={cache_type}"
         )
+        # Start the server with pipes for output
+        self.process = subprocess.Popen(cmd, stderr=subprocess.PIPE, bufsize=0, env=env)
 
         threading.Thread(target=filter_stderr_with_progress, args=(self.process.stderr,), daemon=True).start()
 
@@ -473,7 +471,7 @@ def filter_stderr_with_progress(process_stderr):
     Reads stderr lines from a process, filters out noise, and displays progress updates
     inline (overwriting the same line) until completion.
     """
-    progress_re = re.compile(r'slot update_slots: id.*progress = (\d+\.\d+)')
+    progress_re = re.compile(r"slot update_slots: id.*progress = (\d+\.\d+)")
     last_was_progress = False
 
     try:
@@ -488,10 +486,10 @@ def filter_stderr_with_progress(process_stderr):
             buffer += chunk
 
             # Process complete lines
-            while b'\n' in buffer:
-                line_bytes, buffer = buffer.split(b'\n', 1)
+            while b"\n" in buffer:
+                line_bytes, buffer = buffer.split(b"\n", 1)
                 try:
-                    line = line_bytes.decode('utf-8', errors='replace').strip('\r\n')
+                    line = line_bytes.decode("utf-8", errors="replace").strip("\r\n")
                     if line:  # Process non-empty lines
                         match = progress_re.search(line)
 
@@ -499,19 +497,19 @@ def filter_stderr_with_progress(process_stderr):
                             progress = float(match.group(1))
 
                             # Extract just the part from "prompt processing" onwards
-                            prompt_processing_idx = line.find('prompt processing')
+                            prompt_processing_idx = line.find("prompt processing")
                             if prompt_processing_idx != -1:
                                 display_line = line[prompt_processing_idx:]
                             else:
                                 display_line = line  # fallback to full line
 
                             # choose carriage return for in-progress or newline at completion
-                            end_char = '\r' if progress < 1.0 else '\n'
+                            end_char = "\r" if progress < 1.0 else "\n"
                             print(display_line, end=end_char, file=sys.stderr, flush=True)
-                            last_was_progress = (progress < 1.0)
+                            last_was_progress = progress < 1.0
 
                         # skip noise lines
-                        elif not (line.startswith(('srv ', 'slot ')) or 'log_server_r: request: GET /health' in line):
+                        elif not (line.startswith(("srv ", "slot ")) or "log_server_r: request: GET /health" in line):
                             # if we were in progress, finish that line first
                             if last_was_progress:
                                 print(file=sys.stderr)
@@ -522,7 +520,7 @@ def filter_stderr_with_progress(process_stderr):
                 except Exception:
                     continue
 
-    except (ValueError, IOError):
+    except (OSError, ValueError):
         pass
     finally:
         try:

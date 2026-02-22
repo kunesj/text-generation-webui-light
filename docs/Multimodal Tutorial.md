@@ -48,19 +48,8 @@ The model will reply with great understanding of the image contents:
 
 <img width="809" height="884" alt="print6" src="https://github.com/user-attachments/assets/be4a8f4d-619d-49e6-86f5-012d89f8db8d" />
 
-## Multimodal with ExLlamaV3
-
-Multimodal also works with the ExLlamaV3 loader (the non-HF one).
-
-No additional files are necessary, just load a multimodal EXL3 model and send an image.
-
-Examples of models that you can use:
-
-- https://huggingface.co/turboderp/gemma-3-27b-it-exl3
-- https://huggingface.co/turboderp/Mistral-Small-3.1-24B-Instruct-2503-exl3
-
 ## Multimodal API examples
 
 In the page below you can find some ready-to-use examples:
 
-[Multimodal/vision (llama.cpp and ExLlamaV3)](https://github.com/oobabooga/text-generation-webui/wiki/12-%E2%80%90-OpenAI-API#multimodalvision-llamacpp-and-exllamav3)
+[Multimodal/vision](https://github.com/oobabooga/text-generation-webui/wiki/12-%E2%80%90-OpenAI-API#multimodalvision-llamacpp-and-exllamav3)

@@ -1,39 +1,26 @@
 from modules import shared
 from modules.logging_colors import logger
-from modules.LoRA import add_lora_to_model
 from modules.models import load_model, unload_model
 from modules.models_settings import get_model_metadata, update_model_parameters
 from modules.utils import get_available_loras, get_available_models
 
 
 def get_current_model_info():
-    return {
-        'model_name': shared.model_name,
-        'lora_names': shared.lora_names,
-        'loader': shared.args.loader
-    }
+    return {"model_name": shared.model_name, "lora_names": shared.lora_names, "loader": shared.args.loader}
 
 
 def list_models():
-    return {'model_names': get_available_models()}
+    return {"model_names": get_available_models()}
 
 
 def list_models_openai_format():
     """Returns model list in OpenAI API format"""
     model_names = get_available_models()
-    return {
-        "object": "list",
-        "data": [model_info_dict(name) for name in model_names]
-    }
+    return {"object": "list", "data": [model_info_dict(name) for name in model_names]}
 
 
 def model_info_dict(model_name: str) -> dict:
-    return {
-        "id": model_name,
-        "object": "model",
-        "created": 0,
-        "owned_by": "user"
-    }
+    return {"id": model_name, "object": "model", "created": 0, "owned_by": "user"}
 
 
 def _load_model(data):
@@ -58,19 +45,11 @@ def _load_model(data):
         for k in settings:
             if k in shared.settings:
                 shared.settings[k] = settings[k]
-                if k == 'truncation_length':
+                if k == "truncation_length":
                     logger.info(f"TRUNCATION LENGTH (UPDATED): {shared.settings['truncation_length']}")
-                elif k == 'instruction_template':
+                elif k == "instruction_template":
                     logger.info(f"INSTRUCTION TEMPLATE (UPDATED): {shared.settings['instruction_template']}")
 
 
 def list_loras():
-    return {'lora_names': get_available_loras()[1:]}
-
-
-def load_loras(lora_names):
-    add_lora_to_model(lora_names)
-
-
-def unload_all_loras():
-    add_lora_to_model([])
+    return {"lora_names": get_available_loras()[1:]}
