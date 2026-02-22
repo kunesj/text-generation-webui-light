@@ -60,7 +60,6 @@ def setup_logging():
     logging.getLogger("urllib3").setLevel(logging.ERROR)
     logging.getLogger("httpx").setLevel(logging.ERROR)
     logging.getLogger("diffusers").setLevel(logging.ERROR)
-    logging.getLogger("torch").setLevel(logging.ERROR)
     logging.getLogger("lycoris").handlers = logger.handlers
 
 

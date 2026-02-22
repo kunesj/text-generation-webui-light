@@ -90,17 +90,9 @@ def unload_model(keep_model_name=False):
     if shared.model is None:
         return
 
-    model_class_name = shared.model.__class__.__name__
-    is_llamacpp = model_class_name == "LlamaServer"
-
     shared.model = shared.tokenizer = None
     shared.lora_names = []
     shared.model_dirty_from_training = False
-
-    if not is_llamacpp:
-        from modules.torch_utils import clear_torch_cache
-
-        clear_torch_cache()
 
     if not keep_model_name:
         shared.model_name = "None"
