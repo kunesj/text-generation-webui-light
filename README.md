@@ -1,7 +1,7 @@
-# Text Generation Web UI: llama.cpp
+# Text Generation Web UI: Light
 
-This is a fork of [Text Generation Web UI](https://github.com/oobabooga/text-generation-webui) that aims to turn it 
-into a relatively lightweight frontend for [llama.cpp](https://github.com/ggml-org/llama.cpp).
+This is a fork of [Text Generation Web UI](https://github.com/oobabooga/text-generation-webui) that aims to turn it into a pure lightweight frontend, 
+that could be used with any existing installation of [llama.cpp](https://github.com/ggml-org/llama.cpp).
 
 ```bash
 LLAMA_SERVER_PATH=/path/to/your/llama-server uv run python server.py

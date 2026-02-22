@@ -1,5 +1,5 @@
 [project]
-name = "text-generation-webui-llama-cpp"
+name = "text-generation-webui-light"
 # forked from text-generation-webui 3.23 910456b
 version = "3.23.0"
 requires-python = ">=3.12"

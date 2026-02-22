@@ -1557,7 +1557,7 @@ wheels = [
 ]
 
 [[package]]
-name = "text-generation-webui-llama-cpp"
+name = "text-generation-webui-light"
 version = "3.23.0"
 source = { virtual = "." }
 dependencies = [
