@@ -1,6 +1,6 @@
 # Text Generation Web UI: Light
 
-This is a fork of [Text Generation Web UI](https://github.com/oobabooga/text-generation-webui) that aims to turn it into a pure lightweight frontend, 
+This is a fork of [Text Generation Web UI](https://github.com/oobabooga/text-generation-webui) that aims to turn it into just a frontend, 
 that could be used with any existing installation of [llama.cpp](https://github.com/ggml-org/llama.cpp).
 
 ```bash
